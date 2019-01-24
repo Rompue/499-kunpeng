@@ -49,22 +49,20 @@ using chirp::KeyValueStore;
 
 class StorageImpl final : public KeyValueStore::Service {
  public:
-  explicit StorageImpl() {
-    this->map_ = ThreadSafeMap();
-  }
+  explicit StorageImpl() : map_() {}
 
   Status put(ServerContext* context, const PutRequest* putRequest, PutReply* putReply) override {
     map_.put(putRequest->key(), putRequest->value());
     return Status::OK;  // TODO::status indicate successfulness
   }
 
-  Status get(ServerContext* context, ServerReaderWriter<GetRequest, GetReply>* stream) override {
+  Status get(ServerContext* context, ServerReaderWriter<GetReply, GetRequest>* stream) {
     std::vector<GetRequest> received_requests;
     GetRequest getrequest;
     while (stream->Read(&getrequest)) {
       for (const GetRequest& request : received_requests) {
         GetReply getReply;
-        getReply->set_value(map_.get(request.key()));
+        getReply.set_value(map_.get(request.key()));
         stream->Write(getReply);
       }
       received_requests.push_back(getrequest);
@@ -88,7 +86,7 @@ private:
 
 void RunServer() {
   std::string server_address("0.0.0.0:50000");
-  StorageImpl service();
+  StorageImpl service;
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());

@@ -7,12 +7,13 @@
 
 class ThreadSafeMap {
 public:
-  ThreadSafeMap() = default;
+  ThreadSafeMap() : mutex_() {}
 
   std::string get(std::string key) const {
     std::shared_lock lock(mutex_);
     if (map_.find(key) == map_.end()) {
-      return std::string empty();
+      std::string empty;
+      return empty;
     } else {
       return map_.find(key)->second;
     }
@@ -33,4 +34,4 @@ private:
   mutable std::shared_mutex mutex_;
   std::unordered_map<std::string, std::string> map_;
 
-}
+};
