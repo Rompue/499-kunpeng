@@ -39,7 +39,7 @@ public:
       : stub_(ServiceLayer::NewStub(channel)) {}
   // set the username for this user
   void set_username(std::string username) {
-  	myUsername = username;
+  	username_ = username;
   }
   // register a new user with `username`
 	bool registeruser(std::string username);
@@ -58,5 +58,6 @@ public:
 
 private:
 	std::unique_ptr<ServiceLayer::Stub> stub_;
-	std::string myUsername;
+	std::string username_;
+	void displaySingleChirp(const Chirp& chirp, int indentlevel);
 };

@@ -12,7 +12,7 @@
 
 int main(int argc, char const *argv[])
 {
-	CommandLineInterface commandLineInterface(grpc::CreateChannel("localhost:50051",
+	CommandLineInterface commandLineInterface(grpc::CreateChannel("localhost:50001",
                           grpc::InsecureChannelCredentials()));
 	if (argc < 2) {
 		std::cerr << "please run with arguments" << std::endl;
@@ -53,10 +53,10 @@ int main(int argc, char const *argv[])
 					return 1;
 				}
 				std::string text = arguments[3];
-				if (text[0] != '\"' || text[text.size()-1] != '\"') {
-					std::cerr << "invalid chirp text" << std::endl;
-					return 1;
-				}
+				// if (text[0] != '"' || text[text.size()-1] != '"') {
+				// 	std::cerr << "invalid chirp text" << text[0] << text[text.size()-1] << std::endl;
+				// 	return 1;
+				// }
 
 				int replyid = -1;
 				// check if the new chirp is a reply
