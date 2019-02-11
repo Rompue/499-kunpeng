@@ -61,6 +61,7 @@ message MonitorReply {
 
 service ServiceLayer {
   rpc registeruser (RegisterRequest) returns (RegisterReply) {}
+  rpc login (RegisterRequest) returns (RegisterReply) {}
   rpc chirp (ChirpRequest) returns (ChirpReply) {}
   rpc follow (FollowRequest) returns (FollowReply) {}
   rpc read (ReadRequest) returns (ReadReply) {}
