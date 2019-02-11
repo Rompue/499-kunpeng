@@ -1,5 +1,5 @@
 #include "storage_server.h"
-
+#include "thread_safe_map.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -30,8 +30,9 @@ using chirp::DeleteReply;
 using chirp::KeyValueStore;
 
 
-Status StorageImpl::put(ServerContext* context, const PutRequest* putRequest, PutReply* putReply) override {
-  map_.put(putRequest->key(), putRequest->value());
+Status StorageImpl::put(ServerContext* context, const PutRequest* putrequest, PutReply* putreply) {
+  map_.put(putrequest->key(), putrequest->value());
+  std::cout << "[LOG] [PUT] " << putrequest->key() << " | " << putrequest->value() << std::endl;
   return Status::OK;  // TODO::status indicate successfulness
 }
 
@@ -39,34 +40,28 @@ Status StorageImpl::get(ServerContext* context, ServerReaderWriter<GetReply, Get
   // std::vector<GetRequest> received_requests;
   GetRequest getrequest;
   while (stream->Read(&getrequest)) {
-      GetReply getReply;
-      getReply.set_value(map_.get(getrequest.key()));
-      stream->Write(getReply);
+    GetReply getReply;
+    std::optional<std::string> value = map_.get(getrequest.key());
+    if (value) {
+      getReply.set_value(*value);
+      std::cout << "[LOG] [GET] " << getrequest.key() << " | " << *value << std::endl;
+    } else {
+      Status status(grpc::StatusCode::NOT_FOUND, "cannot find the value of given key");
+      std::cout << "[LOG] [GET] " << getrequest.key() << std::endl;
+      return status;
+    }
+    stream->Write(getReply);
     // received_requests.push_back(getrequest);
   }
   return Status::OK;
 }
 
-Status StorageImpl::deletekey(ServerContext* context, const DeleteRequest* deleteRequest,
-                 DeleteReply* deleteReply) override {
-  map_.deletekey(deleteRequest->key());
+Status StorageImpl::deletekey(ServerContext* context, const DeleteRequest* deleterequest,
+                 DeleteReply* deletereply) {
+  map_.deletekey(deleterequest->key());
   return Status::OK;
 }
 
 // Start the storage backend server at port 50000 on localhost
-void RunServer() {
-  std::string server_address("0.0.0.0:50000");
-  StorageImpl service;
-  ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
-  std::unique_ptr<Server> server(builder.BuildAndStart());
-  std::cout << "Server listening on " << server_address << std::endl;
-  server->Wait();
-}
 
-int main(int argc, char** argv) {
-  RunServer();
 
-  return 0;
-}

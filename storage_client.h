@@ -1,6 +1,5 @@
 /*
 * Kun Peng
-* storage client, issues put / get / deletekey request to the server
 */
 
 #include <iostream>
@@ -30,17 +29,23 @@ using chirp::DeleteRequest;
 using chirp::DeleteReply;
 using chirp::KeyValueStore;
 
+//storage client, issues put / get / deletekey request to the server
 class StorageClient {
   public:
     StorageClient(std::shared_ptr<Channel> channel)
         : stub_(KeyValueStore::NewStub(channel)) {
     }
 
-    void put(const std::string& key, const std::string& value)；
+    // put `key` `value` pair to the storage server
+    Status put(const std::string& key, const std::string& value);
+    // get a stream of strings of the corresponding `keys` from the storage server
+    std::vector<std::string> get(const std::vector<std::string>& keys);
+    // delete the value under the `key` from the storage server
+    Status deletekey(const std::string& key);
 
-    std::vector<std::string> get(const std::vector<std::string>& keys)；
+    std::optional<std::string> has(const std::string& key);
 
-    void deletekey(const std::string& key)；
+    std::string get(const std::string& key);
 
   private:
     std::unique_ptr<KeyValueStore::Stub> stub_;

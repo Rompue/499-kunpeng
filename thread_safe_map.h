@@ -4,6 +4,9 @@
 * for the CS499 chirp project
 */
 
+#ifndef THREADSAFEMAP_H
+#define THREADSAFEMAP_H
+
 #include <string>
 #include <mutex>
 #include <shared_mutex>
@@ -15,7 +18,7 @@ class ThreadSafeMap {
   public:
     ThreadSafeMap() : mutex_() {}
 
-    std::string get(const std::string& key) const;
+    std::optional<std::string> get(const std::string& key) const;
 
     int put(const std::string& key, const std::string& value);
 
@@ -27,3 +30,5 @@ class ThreadSafeMap {
     // internal unordered_map storing kay value pairs
     std::unordered_map<std::string, std::string> map_; 
 };
+
+#endif

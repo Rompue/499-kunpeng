@@ -1,7 +1,5 @@
 /*
  * Kun Peng
- * The backend storage server for the CS499 chirp project.
- * Receive remote call to store key-value pair to internal thread-safe map.
  */
 #include <grpc/grpc.h>
 #include <grpcpp/server.h>
@@ -26,17 +24,18 @@ using chirp::DeleteRequest;
 using chirp::DeleteReply;
 using chirp::KeyValueStore;
 
-
+// The backend storage server for the CS499 chirp project.
+// Receive remote call to store key-value pair to internal thread-safe map.
 class StorageImpl final : public KeyValueStore::Service {
   public:
     explicit StorageImpl() : map_() {}
-
-    Status put(ServerContext* context, const PutRequest* putRequest, PutReply* putReply) override;
-
+    // store the key value pair in the putrequest to `map_`
+    Status put(ServerContext* context, const PutRequest* putrequest, PutReply* putreply) override;
+    // retrieve the stream of values under the stream of keys in getrequest in the `stream`
     Status get(ServerContext* context, ServerReaderWriter<GetReply, GetRequest>* stream);
-
-    Status deletekey(ServerContext* context, const DeleteRequest* deleteRequest,
-                     DeleteReply* deleteReply) override;
+    // delete the key value pair of the key specified in `deleterequest` from `map_`
+    Status deletekey(ServerContext* context, const DeleteRequest* deleterequest,
+                     DeleteReply* deletereply) override;
 
   private:
     ThreadSafeMap map_;

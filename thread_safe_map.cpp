@@ -1,10 +1,10 @@
 #include "thread_safe_map.h"
+#include <iostream>
 
-
-std::string ThreadSafeMap::get(const std::string& key) const {
+std::optional<std::string> ThreadSafeMap::get(const std::string& key) const {
   std::shared_lock lock(mutex_);
   if (map_.find(key) == map_.end()) {
-    return nullptr;
+    return std::nullopt;
   } else {
     return map_.find(key)->second;
   }
@@ -20,4 +20,7 @@ int ThreadSafeMap::put(const std::string& key, const std::string& value) {
 void ThreadSafeMap::deletekey(const std::string& key) {
   std::unique_lock lock(mutex_);
   map_.erase(key);
+
+  //debug
+  std::cout << "Deleted " + key << std::endl;
 }
