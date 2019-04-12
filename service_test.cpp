@@ -3,6 +3,8 @@
 #include <vector>
 #include "cmd.h"
 
+#include "service_data.pb.h"
+
 class ServiceTest : public ::testing::Test {
  protected:
   void SetUp() override {}
@@ -293,7 +295,69 @@ TEST_F(ServiceTest, MonitorBefore) {
             addedchirps[0].timestamp().useconds());
 }
 
-int main(int argc, char **argv) {
+class ServiceTagTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    // get the pointers of service and its storage client
+    service_.reset(new ServiceImpl(true));
+    storageclient_ = service_->get_storage_client();
+
+    // set up test contents
+    Timestamp time;
+    time.set_seconds(1000);
+    for (size_t i = 0; i < kTestCase; ++i) {
+      times.push_back(time);
+
+      time.set_seconds(time.seconds() + 30);
+    }
+  }
+
+  std::unique_ptr<ServiceImpl> service_;
+  StorageClient* storageclient_;
+
+  const size_t kTestCase = 10;
+  const std::string kKeyPrefix = "TAGLIST_";
+  std::vector<Timestamp> times;
+  std::vector<std::string> tags_ = {"tag1", "tag2"};
+};
+
+TEST_F(ServiceTagTest, AddToTagList) {
+  // store all correct data
+  // map from KV-store's key to its vector storing chirp ids
+  std::map<std::string, std::vector<std::string> > map;
+
+  // call the tested function and store correct data
+  for (size_t i = 0; i < kTestCase; ++i) {
+    const std::string& tag = tags_[i % 2];
+    const std::string chirp_id = std::to_string(i);
+
+    service_->AddToTagList(tag, times[i], chirp_id);
+
+    // store the correct data in the map in this testing
+    std::string time_str = std::to_string(times[i].seconds() / 100);
+    time_str.insert(0, 10 - time_str.size(), '0');
+    map[kKeyPrefix + time_str + tag].push_back(chirp_id);
+  }
+
+  // read from KV-store
+  for (const auto& it : map) {
+    // make the data are stored in KV-store
+    EXPECT_TRUE(storageclient_->has(it.first));
+
+    // get the data stored in KV-store and deserialize them
+    std::string data_from_kv = storageclient_->get(it.first);
+    ServiceData::TagList tag_list;
+    tag_list.ParseFromString(data_from_kv);
+
+    // check if the data from KV-store are equal to the data we store
+    ASSERT_EQ(tag_list.chirp_ids_size(), it.second.size());
+    for (int i = 0; i < tag_list.chirp_ids_size(); ++i) {
+      ASSERT_EQ(tag_list.chirp_ids(i), it.second[i]);
+    }
+  }
+}
+
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

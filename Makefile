@@ -26,7 +26,7 @@ all: storage_server service chirp
 chirp: storage.pb.o storage.grpc.pb.o service.pb.o service.grpc.pb.o service.o storage_client.o storage_server.o cmd.o cmd_main.o thread_safe_map.o
 	$(CXX) $^ $(LDFLAGS) -o $@
 
-service: storage.pb.o storage.grpc.pb.o service.pb.o service.grpc.pb.o storage_client.o service.o service_main.o thread_safe_map.o
+service: storage.pb.o storage.grpc.pb.o service.pb.o service.grpc.pb.o service_data.pb.o storage_client.o service.o service_main.o thread_safe_map.o
 	$(CXX) $^ $(LDFLAGS) -o $@
 
 storage_client: storage.pb.o storage.grpc.pb.o storage_client.o thread_safe_map.o storage_client_main.o
@@ -38,7 +38,7 @@ storage_server: storage.pb.o storage.grpc.pb.o storage_server.o thread_safe_map.
 storage_test: storage.pb.o storage.grpc.pb.o storage_test.o storage_client.o storage_server.o thread_safe_map.o 
 	$(CXX) $^ $(LDFLAGS) $(TESTFLAGS) -o $@
 
-service_test: storage.pb.o storage.grpc.pb.o service.pb.o service.grpc.pb.o storage_client.o storage_server.o thread_safe_map.o service.o cmd.o service_test.o 
+service_test: storage.pb.o storage.grpc.pb.o service.pb.o service.grpc.pb.o service_data.pb.o storage_client.o storage_server.o thread_safe_map.o service.o cmd.o service_test.o
 	$(CXX) $^ $(LDFLAGS) $(TESTFLAGS) -o $@
 
 .PRECIOUS: %.grpc.pb.cc

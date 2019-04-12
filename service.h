@@ -10,6 +10,7 @@
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
 #include "service.grpc.pb.h"
+#include "service_data.pb.h"
 #include "storage_client.h"
 
 using grpc::Server;
@@ -87,6 +88,7 @@ class ServiceImpl final : public ServiceLayer::Service {
   static const std::string kChirpEntryKeyPrefix;
   static const std::string kChirpReplyEntryKeyPrefix;
   static const std::string kUserChirpEntryKeyPrefix;
+  static const std::string kTagListKeyPrefix;
   static const int kPullingIntervalSeconds;
   // if this object is for testing
   bool testing_ = false;
@@ -107,6 +109,18 @@ class ServiceImpl final : public ServiceLayer::Service {
   std::vector<std::string> parseChirpList(const std::string& childrenlist);
   // parse a list of usernames to individual usernames
   std::vector<std::string> parseUserList(const std::string& userlist);
+
+ public:
+  // Make these member functions public for testing purpose
+  // get the storage client for testing purpose
+  inline StorageClient* const get_storage_client() {
+    return &(this->storageclient_);
+  }
+  //
+  // add a new chirp id to a specific tag list
+  // here I used tag name and chirps' time as they key to store in the KV-store
+  void AddToTagList(const std::string& tag, const Timestamp& time,
+                    const std::string& chirp_id);
 };
 
 #endif  // CHIRP_SERVICE_H_

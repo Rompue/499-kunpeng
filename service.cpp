@@ -39,6 +39,7 @@ const std::string ServiceImpl::kFollowingUserEntryKeyPrefix = "FOLLOW_";
 const std::string ServiceImpl::kChirpEntryKeyPrefix = "CHIRP_";
 const std::string ServiceImpl::kChirpReplyEntryKeyPrefix = "PARENT_CHIRP_";
 const std::string ServiceImpl::kUserChirpEntryKeyPrefix = "USERCHIRPS_";
+const std::string ServiceImpl::kTagListKeyPrefix = "TAGLIST_";
 
 Status ServiceImpl::registeruser(ServerContext* context,
                                  const RegisterRequest* registerRequest,
@@ -384,4 +385,30 @@ void ServiceImpl::initializeStorage() {
   } else {
     std::cout << "didn't insert G_userid" << std::endl;
   }
+}
+
+void ServiceImpl::AddToTagList(const std::string& tag, const Timestamp& time,
+                               const std::string& chirp_id) {
+  // This specifies the total length of the "time" part in the key since the key
+  // consists of the tag name and time
+  const size_t key_time_length = 10;
+  // This decides how to divide time to arrange them into different keys
+  const size_t time_interval = 100;
+
+  std::string time_key = std::to_string(time.seconds() / time_interval);
+  // add padding '0's to make sure the `time_key` is always 10 chars width
+  time_key.insert(0, key_time_length - time_key.size(), '0');
+
+  std::string key = kTagListKeyPrefix + time_key + tag;
+
+  ServiceData::TagList tag_list;
+  if (storageclient_.has(key)) {
+    std::string tmp = storageclient_.get(key);
+    tag_list.ParseFromString(tmp);
+  }
+  tag_list.add_chirp_ids(chirp_id);
+
+  std::string val;
+  tag_list.SerializeToString(&val);
+  storageclient_.put(key, val);
 }

@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package ServiceData;
+
+message TagList {
+  repeated bytes chirp_ids = 1;
+}
