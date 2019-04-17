@@ -110,13 +110,6 @@ class ServiceImpl final : public ServiceLayer::Service {
   // parse a list of usernames to individual usernames
   std::vector<std::string> parseUserList(const std::string& userlist);
 
- public:
-  // Make these member functions public for testing purpose
-  // get the storage client for testing purpose
-  inline StorageClient* const get_storage_client() {
-    return &(this->storageclient_);
-  }
-  //
   // add a new chirp id to a specific tag list
   // here I used tag name and chirps' time as they key to store in the KV-store
   void AddToTagList(const std::string& tag, const Timestamp& time,
