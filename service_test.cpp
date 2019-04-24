@@ -3,6 +3,8 @@
 #include <vector>
 #include "cmd.h"
 
+#include "service_data.pb.h"
+
 class ServiceTest : public ::testing::Test {
  protected:
   void SetUp() override {}
@@ -293,7 +295,17 @@ TEST_F(ServiceTest, MonitorBefore) {
             addedchirps[0].timestamp().useconds());
 }
 
-int main(int argc, char **argv) {
+class ServiceTagTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    // get the pointers of service and its storage client
+    service_.reset(new ServiceImpl(true));
+  }
+
+  std::unique_ptr<ServiceImpl> service_;
+};
+
+int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

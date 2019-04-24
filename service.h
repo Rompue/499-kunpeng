@@ -10,6 +10,7 @@
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
 #include "service.grpc.pb.h"
+#include "service_data.pb.h"
 #include "storage_client.h"
 
 using grpc::Server;
@@ -87,6 +88,7 @@ class ServiceImpl final : public ServiceLayer::Service {
   static const std::string kChirpEntryKeyPrefix;
   static const std::string kChirpReplyEntryKeyPrefix;
   static const std::string kUserChirpEntryKeyPrefix;
+  static const std::string kTagListKeyPrefix;
   static const int kPullingIntervalSeconds;
   // if this object is for testing
   bool testing_ = false;
@@ -107,6 +109,20 @@ class ServiceImpl final : public ServiceLayer::Service {
   std::vector<std::string> parseChirpList(const std::string& childrenlist);
   // parse a list of usernames to individual usernames
   std::vector<std::string> parseUserList(const std::string& userlist);
+
+  // helper function to get a key to store in KV-store from a tag and a
+  // timestamp
+  std::string GetKey(const std::string& tag, const Timestamp& time);
+  std::string GetKey(const std::string& tag, const uint64_t& second);
+
+  // add a new chirp id to a specific tag list
+  // here I used tag name and chirps' time as they key to store in the KV-store
+  void AddToTagList(const std::string& tag, const Timestamp& time,
+                    const std::string& chirp_id);
+
+  // retrieve all chirp ids with a specific tag from a specific timestamp
+  ServiceData::TagList GetChirpsByTagFromTime(const std::string& tag,
+                                              const Timestamp& from);
 };
 
 #endif  // CHIRP_SERVICE_H_

@@ -39,6 +39,7 @@ const std::string ServiceImpl::kFollowingUserEntryKeyPrefix = "FOLLOW_";
 const std::string ServiceImpl::kChirpEntryKeyPrefix = "CHIRP_";
 const std::string ServiceImpl::kChirpReplyEntryKeyPrefix = "PARENT_CHIRP_";
 const std::string ServiceImpl::kUserChirpEntryKeyPrefix = "USERCHIRPS_";
+const std::string ServiceImpl::kTagListKeyPrefix = "TAGLIST_";
 
 Status ServiceImpl::registeruser(ServerContext* context,
                                  const RegisterRequest* registerRequest,
@@ -384,4 +385,64 @@ void ServiceImpl::initializeStorage() {
   } else {
     std::cout << "didn't insert G_userid" << std::endl;
   }
+}
+
+// This specifies the total length of the "time" part in the key since the key
+// consists of the tag name and time
+const size_t kKeyTimeLength = 10;
+// This decides how to divide time to arrange them into different keys
+const size_t kTimeInterval = 100;
+std::string ServiceImpl::GetKey(const std::string& tag, const Timestamp& time) {
+  return GetKey(tag, time.seconds());
+}
+std::string ServiceImpl::GetKey(const std::string& tag,
+                                const uint64_t& second) {
+  std::string time_key = std::to_string(second / kTimeInterval);
+  // add padding '0's to make sure the `time_key` is always 10 chars width
+  time_key.insert(0, kKeyTimeLength - time_key.size(), '0');
+
+  return kTagListKeyPrefix + time_key + tag;
+}
+
+void ServiceImpl::AddToTagList(const std::string& tag, const Timestamp& time,
+                               const std::string& chirp_id) {
+  std::string key = GetKey(tag, time);
+
+  ServiceData::TagList tag_list;
+  if (storageclient_.has(key)) {
+    std::string tmp = storageclient_.get(key);
+    tag_list.ParseFromString(tmp);
+  }
+  tag_list.add_chirp_ids(chirp_id);
+
+  std::string val;
+  tag_list.SerializeToString(&val);
+  storageclient_.put(key, val);
+}
+
+ServiceData::TagList ServiceImpl::GetChirpsByTagFromTime(
+    const std::string& tag, const Timestamp& from) {
+  ServiceData::TagList ret;
+
+  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::system_clock::now().time_since_epoch())
+                     .count();
+  uint64_t now_second = now / 1000;
+
+  for (uint64_t second = from.seconds(); second < now_second;
+       second += kTimeInterval) {
+    std::string key = GetKey(tag, second);
+
+    if (storageclient_.has(key)) {
+      ServiceData::TagList tag_list;
+      std::string tmp = storageclient_.get(key);
+      tag_list.ParseFromString(tmp);
+
+      for (int i = 0; i < tag_list.chirp_ids_size(); ++i) {
+        ret.add_chirp_ids(tag_list.chirp_ids(i));
+      }
+    }
+  }
+
+  return ret;
 }
