@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -168,6 +169,11 @@ Status ServiceImpl::chirp(ServerContext* context,
                     << chirp->username() << " chirp list: " << newvalue
                     << std::endl;
         }
+
+        // parse the tags
+        auto tags = ParseTagsInChirps(*chirp);
+        // store tag information in the database
+        AddToTagList(tags, *chirp);
 
         chirpReply->set_allocated_chirp(chirp);
         return Status::OK;
@@ -387,6 +393,26 @@ void ServiceImpl::initializeStorage() {
   }
 }
 
+std::vector<std::string> ServiceImpl::ParseTagsInChirps(const Chirp& chirp) {
+  return ParseTagsInChirps(chirp.text());
+}
+std::vector<std::string> ServiceImpl::ParseTagsInChirps(
+    const std::string& chirp_context) {
+  std::vector<std::string> ret;
+
+  std::string tmp = chirp_context;
+  std::regex exp("#(\\S+)");
+  std::smatch sm;
+
+  while (std::regex_search(tmp, sm, exp)) {
+    // sm[1] is the matched substring within the parenthesis
+    ret.push_back(sm[1]);
+    tmp = sm.suffix();
+  }
+
+  return ret;
+}
+
 // This specifies the total length of the "time" part in the key since the key
 // consists of the tag name and time
 const size_t kKeyTimeLength = 10;
@@ -420,6 +446,19 @@ void ServiceImpl::AddToTagList(const std::string& tag, const Timestamp& time,
   storageclient_.put(key, val);
 }
 
+void ServiceImpl::AddToTagList(const std::vector<std::string>& tags,
+                               const Timestamp& time,
+                               const std::string& chirp_id) {
+  for (const std::string& tag : tags) {
+    AddToTagList(tag, time, chirp_id);
+  }
+}
+
+void ServiceImpl::AddToTagList(const std::vector<std::string>& tags,
+                               const Chirp& chirp) {
+  return AddToTagList(tags, chirp.timestamp(), chirp.id());
+}
+
 ServiceData::TagList ServiceImpl::GetChirpsByTagFromTime(
     const std::string& tag, const Timestamp& from) {
   ServiceData::TagList ret;
@@ -429,7 +468,7 @@ ServiceData::TagList ServiceImpl::GetChirpsByTagFromTime(
                      .count();
   uint64_t now_second = now / 1000;
 
-  for (uint64_t second = from.seconds(); second < now_second;
+  for (uint64_t second = from.seconds(); second <= now_second;
        second += kTimeInterval) {
     std::string key = GetKey(tag, second);
 
