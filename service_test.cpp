@@ -305,6 +305,33 @@ class ServiceTagTest : public ::testing::Test {
   std::unique_ptr<ServiceImpl> service_;
 };
 
+TEST_F(ServiceTagTest, StoreTagToDatabase) {
+  const std::string text = "abc #tag1 abc#tag2 abc#tag3#tag4\nabc #tag5";
+  const std::vector<std::string> correct_tags = {"tag1", "tag2", "tag3#tag4",
+                                                 "tag5"};
+
+  Timestamp now_timestamp;
+  auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::system_clock::now().time_since_epoch())
+                 .count() /
+             1000;
+  now_timestamp.set_seconds(now);
+
+  ServerContext context;
+  ChirpRequest request;
+  ChirpReply reply;
+
+  request.set_text(text);
+
+  service_->chirp(&context, &request, &reply);
+
+  for (const std::string& tag : correct_tags) {
+    auto ids = service_->GetChirpsByTagFromTime(tag, now_timestamp);
+    ASSERT_TRUE(ids.chirp_ids_size() > 0);
+    EXPECT_EQ(reply.chirp().id(), ids.chirp_ids(0));
+  }
+}
+
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
