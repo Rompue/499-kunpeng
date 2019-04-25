@@ -70,6 +70,8 @@ class CommandLineInterface {
   bool readTest(int chirpid, ReadReply& reply);
   // start to monitor the followed user and output chirps to console
   void monitor();
+  // start to stream chirps with a specified tag
+  void stream(const std::string& tag);
 
   std::vector<Chirp> monitorTest();
   // validify the username, if valid, login the user

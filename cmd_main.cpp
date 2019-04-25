@@ -118,6 +118,13 @@ int main(int argc, char const *argv[]) {
       std::cerr << "fail to read chirp " << chirpid << std::endl;
       return 1;
     }
+  } else if (arguments[0] == "--stream") {
+    if (argumentsize != 2) {
+      std::cerr << "invalid arguments" << std::endl;
+      return 1;
+    }
+
+    commandLineInterface.stream(arguments[1]);
   } else {
     std::cerr << "invalid arguments" << std::endl;
     return 1;
