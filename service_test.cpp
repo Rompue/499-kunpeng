@@ -1,9 +1,10 @@
 #include <gtest/gtest.h>
+
+#include <sys/time.h>
+
 #include <string>
 #include <vector>
 #include "cmd.h"
-
-#include "service_data.pb.h"
 
 class ServiceTest : public ::testing::Test {
  protected:
@@ -309,26 +310,44 @@ TEST_F(ServiceTagTest, StoreTagToDatabase) {
   const std::string text = "abc #tag1 abc#tag2 abc#tag3#tag4\nabc #tag5";
   const std::vector<std::string> correct_tags = {"tag1", "tag2", "tag3#tag4",
                                                  "tag5"};
-
-  Timestamp now_timestamp;
-  auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                 std::chrono::system_clock::now().time_since_epoch())
-                 .count() /
-             1000;
-  now_timestamp.set_seconds(now);
-
   ServerContext context;
   ChirpRequest request;
   ChirpReply reply;
 
   request.set_text(text);
 
+  // Make a don't care chirp
+  service_->chirp(&context, &request, &reply);
+
+  // Start making the timestamp
+  struct timeval time;
+  gettimeofday(&time, nullptr);
+  chirp::Timestamp now_timestamp;
+  now_timestamp.set_seconds(time.tv_sec);
+  now_timestamp.set_useconds(time.tv_usec);
+
+  // This posting chirp should be recorded in the following
+  // `GetChirpsByTagFromTime` call
   service_->chirp(&context, &request, &reply);
 
   for (const std::string& tag : correct_tags) {
-    auto ids = service_->GetChirpsByTagFromTime(tag, now_timestamp);
-    ASSERT_TRUE(ids.chirp_ids_size() > 0);
-    EXPECT_EQ(reply.chirp().id(), ids.chirp_ids(0));
+    // Back up the current timestamp since `GetChirpsByTagFromTime` will modify
+    // timestamp
+    chirp::Timestamp backup_timestamp = now_timestamp;
+
+    auto ids = service_->GetChirpsByTagFromTime(tag, &now_timestamp);
+
+    // Make sure that the original timestamp is less than the modified timestamp
+    EXPECT_TRUE(backup_timestamp.seconds() < now_timestamp.seconds() ||
+                (backup_timestamp.seconds() == now_timestamp.seconds() &&
+                 backup_timestamp.useconds() < now_timestamp.useconds()));
+
+    // Should return only one id
+    ASSERT_TRUE(ids.size() == 1);
+    EXPECT_EQ(reply.chirp().id(), ids.front());
+
+    // Restore the timestamp for other tests
+    now_timestamp = backup_timestamp;
   }
 }
 
