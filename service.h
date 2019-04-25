@@ -10,7 +10,6 @@
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
 #include "service.grpc.pb.h"
-#include "service_data.pb.h"
 #include "storage_client.h"
 
 using grpc::Server;
@@ -33,6 +32,8 @@ using chirp::ReadRequest;
 using chirp::RegisterReply;
 using chirp::RegisterRequest;
 using chirp::ServiceLayer;
+using chirp::StreamReply;
+using chirp::StreamRequest;
 using chirp::Timestamp;
 
 /* service layer server for chirp project */
@@ -72,6 +73,9 @@ class ServiceImpl final : public ServiceLayer::Service {
         false;  // set initial monitor to false for future monitor calls
     return newchirps_;
   }
+
+  Status stream(ServerContext* context, const StreamRequest* streamRequest,
+                ServerWriter<StreamReply>* writer);
   // check if a user exists
   Status login(ServerContext* context, const RegisterRequest* registerRequest,
                RegisterReply* registerReply) override;
@@ -114,6 +118,9 @@ class ServiceImpl final : public ServiceLayer::Service {
   std::vector<std::string> ParseTagsInChirps(const Chirp& chirp);
   std::vector<std::string> ParseTagsInChirps(const std::string& chirp_context);
 
+  // helper function to get the current timestamp
+  Timestamp GetCurrentTimestamp();
+
   // helper function to get a key to store in KV-store from a tag and a
   // timestamp
   std::string GetKey(const std::string& tag, const Timestamp& time);
@@ -130,8 +137,10 @@ class ServiceImpl final : public ServiceLayer::Service {
 
  public:
   // retrieve all chirp ids with a specific tag from a specific timestamp
-  ServiceData::TagList GetChirpsByTagFromTime(const std::string& tag,
-                                              const Timestamp& from);
+  // The timestamp will be modified by this function to be the current time
+  // recorded in this function
+  std::vector<std::string> GetChirpsByTagFromTime(const std::string& tag,
+                                                  Timestamp* const from);
 };
 
 #endif  // CHIRP_SERVICE_H_

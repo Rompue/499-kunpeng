@@ -1,4 +1,7 @@
 #include "service.h"
+
+#include <sys/time.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -22,6 +25,8 @@ using chirp::ReadRequest;
 using chirp::RegisterReply;
 using chirp::RegisterRequest;
 using chirp::ServiceLayer;
+using chirp::StreamReply;
+using chirp::StreamRequest;
 using chirp::Timestamp;
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -102,12 +107,7 @@ Status ServiceImpl::chirp(ServerContext* context,
   chirp->set_text(chirpRequest->text());
   chirp->set_parent_id(chirpRequest->parent_id());
   Timestamp* timestamp = new Timestamp;
-  unsigned long long now =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch())
-          .count();
-  timestamp->set_seconds(now / 1000);
-  timestamp->set_useconds(now);
+  *timestamp = GetCurrentTimestamp();
   chirp->set_allocated_timestamp(timestamp);
 
   // log info
@@ -375,6 +375,42 @@ Status ServiceImpl::monitor(ServerContext* context,
   return Status::OK;
 }
 
+Status ServiceImpl::stream(ServerContext* context,
+                           const StreamRequest* streamRequest,
+                           ServerWriter<StreamReply>* writer) {
+  const std::string& tag_name = streamRequest->tag();
+  chirp::Timestamp time = GetCurrentTimestamp();
+  bool flag = true;
+  const int mseconds_per_wait = 50;
+  std::cout << "[LOG] "
+            << "Starts monitoring on tag " << tag_name << std::endl;
+
+  while (flag) {
+    if (context->IsCancelled()) {
+      std::cout << "[LOG] Stopped streaming" << std::endl;
+        return Status::OK;
+    }
+
+    // sleep for some time interval between every polling
+    std::this_thread::sleep_for(std::chrono::milliseconds(mseconds_per_wait));
+
+    std::vector<std::string> chirp_ids =
+        GetChirpsByTagFromTime(tag_name, &time);
+
+    for (const std::string& id : chirp_ids) {
+      StreamReply reply;
+      reply.set_chirp_id(id);
+
+      if (!writer->Write(reply)) {
+        flag = false;
+        break;
+      }
+    }
+  }
+
+  return Status::OK;
+}
+
 void ServiceImpl::initializeStorage() {
   if (!storageclient_.has(kChirpIDKey)) {
     storageclient_.put(kChirpIDKey, "1");
@@ -413,18 +449,29 @@ std::vector<std::string> ServiceImpl::ParseTagsInChirps(
   return ret;
 }
 
+chirp::Timestamp ServiceImpl::GetCurrentTimestamp() {
+  struct timeval time;
+  gettimeofday(&time, nullptr);
+
+  chirp::Timestamp timestamp;
+  timestamp.set_seconds(time.tv_sec);
+  timestamp.set_useconds(time.tv_usec);
+
+  return timestamp;
+}
+
 // This specifies the total length of the "time" part in the key since the key
 // consists of the tag name and time
-const size_t kKeyTimeLength = 10;
+const size_t kKeyTimeLength = 12;
 // This decides how to divide time to arrange them into different keys
-const size_t kTimeInterval = 100;
+const size_t kTimeInterval = 1;  // Unit is second
 std::string ServiceImpl::GetKey(const std::string& tag, const Timestamp& time) {
   return GetKey(tag, time.seconds());
 }
 std::string ServiceImpl::GetKey(const std::string& tag,
                                 const uint64_t& second) {
   std::string time_key = std::to_string(second / kTimeInterval);
-  // add padding '0's to make sure the `time_key` is always 10 chars width
+  // add padding '0's to make sure the `time_key` is always 12 chars width
   time_key.insert(0, kKeyTimeLength - time_key.size(), '0');
 
   return kTagListKeyPrefix + time_key + tag;
@@ -434,12 +481,18 @@ void ServiceImpl::AddToTagList(const std::string& tag, const Timestamp& time,
                                const std::string& chirp_id) {
   std::string key = GetKey(tag, time);
 
-  ServiceData::TagList tag_list;
+  chirp::TagList tag_list;
+
+  // Retrieve previous tag_list if exists
   if (storageclient_.has(key)) {
     std::string tmp = storageclient_.get(key);
     tag_list.ParseFromString(tmp);
   }
-  tag_list.add_chirp_ids(chirp_id);
+
+  // Add a new tag item into tag list
+  chirp::TagListItem* tag_item = tag_list.add_tag_items();
+  *tag_item->mutable_timestamp() = time;
+  tag_item->set_chirp_id(chirp_id);
 
   std::string val;
   tag_list.SerializeToString(&val);
@@ -459,29 +512,41 @@ void ServiceImpl::AddToTagList(const std::vector<std::string>& tags,
   return AddToTagList(tags, chirp.timestamp(), chirp.id());
 }
 
-ServiceData::TagList ServiceImpl::GetChirpsByTagFromTime(
-    const std::string& tag, const Timestamp& from) {
-  ServiceData::TagList ret;
+// Helper function to overload operator< and operator<= for Timestamp
+bool operator<(const Timestamp& lhs, const Timestamp& rhs) {
+  return (lhs.seconds() < rhs.seconds()) ||
+         (lhs.seconds() == rhs.seconds() && (lhs.useconds() < rhs.useconds()));
+}
 
-  uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
-                     std::chrono::system_clock::now().time_since_epoch())
-                     .count();
-  uint64_t now_second = now / 1000;
+bool operator<=(const Timestamp& lhs, const Timestamp& rhs) {
+  return (lhs.seconds() < rhs.seconds()) ||
+         (lhs.seconds() == rhs.seconds() && (lhs.useconds() <= rhs.useconds()));
+}
 
-  for (uint64_t second = from.seconds(); second <= now_second;
+std::vector<std::string> ServiceImpl::GetChirpsByTagFromTime(
+    const std::string& tag, Timestamp* const from) {
+  std::vector<std::string> ret;
+  Timestamp current = GetCurrentTimestamp();
+
+  for (uint64_t second = from->seconds(); second <= current.seconds();
        second += kTimeInterval) {
     std::string key = GetKey(tag, second);
 
     if (storageclient_.has(key)) {
-      ServiceData::TagList tag_list;
+      chirp::TagList tag_list;
       std::string tmp = storageclient_.get(key);
       tag_list.ParseFromString(tmp);
 
-      for (int i = 0; i < tag_list.chirp_ids_size(); ++i) {
-        ret.add_chirp_ids(tag_list.chirp_ids(i));
+      for (int i = 0; i < tag_list.tag_items_size(); ++i) {
+        const chirp::TagListItem& tag_item = tag_list.tag_items(i);
+        if (*from <= tag_item.timestamp() && tag_item.timestamp() < current) {
+          ret.push_back(tag_item.chirp_id());
+        }
       }
     }
   }
+
+  *from = current;
 
   return ret;
 }
