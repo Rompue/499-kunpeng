@@ -16,6 +16,15 @@ message Chirp {
   Timestamp timestamp = 5;  // The time this chirp was posted.
 }
 
+message TagListItem {
+  Timestamp timestamp = 1;
+  bytes chirp_id = 2;
+}
+
+message TagList {
+  repeated TagListItem tag_items = 1;
+}
+
 message RegisterRequest {
   string username = 1;
 }
@@ -59,6 +68,14 @@ message MonitorReply {
   Chirp chirp = 1;
 }
 
+message StreamRequest {
+  string tag = 1;
+}
+
+message StreamReply {
+  bytes chirp_id = 1;
+}
+
 service ServiceLayer {
   rpc registeruser (RegisterRequest) returns (RegisterReply) {}
   rpc login (RegisterRequest) returns (RegisterReply) {}
@@ -66,4 +83,5 @@ service ServiceLayer {
   rpc follow (FollowRequest) returns (FollowReply) {}
   rpc read (ReadRequest) returns (ReadReply) {}
   rpc monitor (MonitorRequest) returns (stream MonitorReply) {}
+  rpc stream (StreamRequest) returns (stream StreamReply) {}
 }

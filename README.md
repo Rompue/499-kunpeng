@@ -55,7 +55,10 @@ To login as `username` and **follow another user** with `username2`: `$ ./chirp 
 To login as `username` and start **monitoring** following users: `$ ./chirp --user username --monitor`  
 To stop monitoring, press Ctrl + C (terminating process in bash/terminal)
 
-To **read a chirp** with `chirpid` without login: `$ ./chirp --read chirpid`   
+To **read a chirp** with `chirpid` without login: `$ ./chirp --read chirpid` 
+
+To **stream chirps** with `tag_name` (including or not including `'#'`) without login: `$ ./chirp --stream tag_name`
+To stop streaming, press Ctrl + C (terminating process in bash/terminal)
 
 #### All other use of the command line tool may result in error or even undefined behavior
 

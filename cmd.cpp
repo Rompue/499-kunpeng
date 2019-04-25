@@ -12,6 +12,8 @@ using chirp::FollowReply;
 using chirp::FollowRequest;
 using chirp::MonitorReply;
 using chirp::MonitorRequest;
+using chirp::StreamRequest;
+using chirp::StreamReply;
 using chirp::ReadReply;
 using chirp::ReadRequest;
 using chirp::RegisterReply;
@@ -244,6 +246,26 @@ void CommandLineInterface::monitor() {
     }
   }
   Status status = reader->Finish();
+}
+
+void CommandLineInterface::stream(const std::string& tag) {
+  StreamRequest request;
+  StreamReply reply;
+
+  // To check if the user includes `#`
+  if (tag.front() == '#') {
+    request.set_tag(tag.substr(1));
+  } else {
+    request.set_tag(tag);
+  }
+
+  ClientContext context;
+  std::unique_ptr<ClientReader<StreamReply>> reader(stub_->stream(&context, request));
+
+  while (reader->Read(&reply)) {
+    int chirp_id = stoi(reply.chirp_id());
+    read(chirp_id);
+  }
 }
 
 std::vector<Chirp> CommandLineInterface::monitorTest() {
